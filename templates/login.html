@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в систему</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-page">
+
+    <!-- Верхняя панель: Слева кнопка, Справа темы -->
+    <div class="top-bar-login">
+        <a href="{{ url_for('index') }}" class="back-link-main">← На главную</a>
+        <div class="controls-right">
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Переключить тему">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <button class="theme-stars-btn" onclick="toggleStarTheme()" title="Режим эксклюзивных цветовых тем">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Основной контейнер -->
+    <div class="auth-wrapper">
+
+        <!-- Заголовки НАД окном -->
+        <div class="auth-titles">
+            <div id="title-login">
+                <h1>С возвращением!</h1>
+                <p>Введите данные для доступа к аккаунту</p>
+            </div>
+            <div id="title-register" style="display: none;">
+                <h1>Создать аккаунт</h1>
+                <p>Заполните данные для регистрации</p>
+            </div>
+        </div>
+
+        <div class="auth-card">
+            <!-- Переключатель вкладок -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchTab('login')" id="tab-login">Вход</button>
+                <button class="auth-tab" onclick="switchTab('register')" id="tab-register">Регистрация</button>
+            </div>
+
+            <!-- Сообщения -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- ФОРМА ВХОДА -->
+            <form method="POST" action="{{ url_for('login') }}" class="auth-form" id="form-login">
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Пользователя -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Логин
+                    </label>
+                    <input type="text" name="username" required placeholder="Введите логин">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Замка -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Пароль
+                    </label>
+                    <input type="password" name="password" required placeholder="Введите пароль">
+                </div>
+
+                <!-- Кнопка "Войти" -->
+                <button type="submit" class="btn-auth btn-primary">Войти</button>
+
+                <p class="switch-link">
+                    Нет аккаунта? <a href="#" onclick="switchTab('register'); return false;">Зарегистрироваться</a>
+                </p>
+            </form>
+
+            <!-- ФОРМА РЕГИСТРАЦИИ -->
+            <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="form-register" style="display: none;">
+                <p class="required-note">Поля, отмеченные <span class="req">*</span> обязательны для заполнения</p>
+
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Пользователя -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Логин <span class="req">*</span>
+                    </label>
+                    <input type="text" name="username" required placeholder="Придумайте логин">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Пользователя -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Имя
+                    </label>
+                    <input type="text" name="name" placeholder="Ваше имя">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Конверта -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                        Email
+                    </label>
+                    <input type="email" name="email" placeholder="Ваш email">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <!-- Иконка Замка -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Пароль <span class="req">*</span>
+                    </label>
+                    <input type="password" name="password" required placeholder="Придумайте пароль">
+                </div>
+
+                <!-- Кнопка "Создать аккаунт" -->
+                <button type="submit" class="btn-auth btn-success">Создать аккаунт</button>
+
+                <p class="switch-link">
+                    Уже есть аккаунт? <a href="#" onclick="switchTab('login'); return false;">Войти</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Скрипт переключения вкладок и тем -->
+    <script>
+        // Переключение вкладок (доступно сразу)
+        function switchTab(tab) {
+            const loginForm = document.getElementById('form-login');
+            const registerForm = document.getElementById('form-register');
+            const loginTab = document.getElementById('tab-login');
+            const registerTab = document.getElementById('tab-register');
+            const titleLogin = document.getElementById('title-login');
+            const titleRegister = document.getElementById('title-register');
+
+            if (tab === 'login') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                titleLogin.style.display = 'block';
+                titleRegister.style.display = 'none';
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
+                titleLogin.style.display = 'none';
+                titleRegister.style.display = 'block';
+            }
+        }
+
+        // Логика тем (инициализация после загрузки DOM)
+        document.addEventListener('DOMContentLoaded', () => {
+            let exclusiveMode = localStorage.getItem('exclusiveMode') === 'true';
+            let currentTheme = localStorage.getItem('theme') || 'light';
+
+            // Конвертация тем для эксклюзивного режима
+            if (exclusiveMode) {
+                currentTheme = (currentTheme === 'light' || currentTheme === 'gradient') ? 'gradient' : 'cyberpunk';
+            }
+
+            // Применяем тему
+            document.body.setAttribute('data-theme', currentTheme);
+
+            // Состояние кнопки звезды
+            const starBtn = document.querySelector('.theme-stars-btn');
+            if (starBtn) starBtn.classList.toggle('active', exclusiveMode);
+
+            // Обновление иконок солнца/луны
+            const updateIcons = () => {
+                const isDark = ['dark', 'cyberpunk'].includes(currentTheme);
+                const sun = document.querySelector('.icon-sun');
+                const moon = document.querySelector('.icon-moon');
+                if (sun) sun.style.display = isDark ? 'none' : 'block';
+                if (moon) moon.style.display = isDark ? 'block' : 'none';
+            };
+            updateIcons();
+
+            // Переключение обычной темы
+            window.toggleTheme = () => {
+                currentTheme = exclusiveMode
+                    ? (currentTheme === 'gradient' ? 'cyberpunk' : 'gradient')
+                    : (currentTheme === 'light' ? 'dark' : 'light');
+                localStorage.setItem('theme', currentTheme);
+                document.body.setAttribute('data-theme', currentTheme);
+                updateIcons();
+            };
+
+            // Переключение эксклюзивного режима
+            window.toggleStarTheme = () => {
+                exclusiveMode = !exclusiveMode;
+                localStorage.setItem('exclusiveMode', exclusiveMode);
+                currentTheme = exclusiveMode
+                    ? (currentTheme === 'light' || currentTheme === 'gradient' ? 'gradient' : 'cyberpunk')
+                    : (currentTheme === 'gradient' ? 'light' : 'dark');
+                localStorage.setItem('theme', currentTheme);
+                document.body.setAttribute('data-theme', currentTheme);
+                if (starBtn) starBtn.classList.toggle('active', exclusiveMode);
+                updateIcons();
+            };
+        });
+    </script>
+</body>
+</html>

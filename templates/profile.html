@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль - Анализатор корзин</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-page">
+    <!-- Верхняя панель -->
+    <div class="top-bar-login">
+        <a href="{{ url_for('index') }}" class="back-link-main">← На главную</a>
+        <div class="controls-right">
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Переключить тему">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <button class="theme-stars-btn" onclick="toggleStarTheme()" title="Режим эксклюзивных цветовых тем">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+            </button>
+            <a href="{{ url_for('logout') }}" class="btn-logout-top">Выйти</a>
+        </div>
+    </div>
+
+    <div class="auth-wrapper">
+
+        <!-- ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ (ВЫНЕСЕНА НАВЕРХ) -->
+        <div class="user-info-header">
+            <h1 class="user-name-display">{{ name }}</h1>
+            <div class="user-details">
+                <span class="user-username">@{{ username }}</span>
+                <span class="user-email">{{ email }}</span>
+            </div>
+        </div>
+
+        <!-- КАРТОЧКА С ТАБЛИЦЕЙ -->
+        <div class="auth-card profile-card">
+
+            <!-- Сообщения -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- История запросов -->
+            <div class="profile-section">
+                <h2 class="section-title">История запросов</h2>
+
+                {% if history %}
+                <div class="history-table-wrapper">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Файл</th>
+                                <th>Пар найдено</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in history %}
+                            <tr>
+                                <td>{{ h.date }}</td>
+                                <td><strong>{{ h.file }}</strong></td>
+                                <td><span class="badge-count">{{ h.pairs }}</span></td>
+                                <td>
+                                    <a href="{{ url_for('download_report', filename=h.report_filename) }}" class="btn-small btn-download">Скачать JSON</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>История пуста</p>
+                    <span>Загрузите первый файл для анализа, и он появится здесь</span>
+                    <a href="{{ url_for('index') }}" class="btn-primary btn-wide">Загрузить файл</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипт переключения тем -->
+    <script>
+        // УНИФИЦИРОВАННАЯ ЛОГИКА ТЕМ (как на index.html и login.html)
+        document.addEventListener('DOMContentLoaded', () => {
+            let exclusiveMode = localStorage.getItem('exclusiveMode') === 'true';
+            let currentTheme = localStorage.getItem('theme') || 'light';
+
+            // Конвертация тем для эксклюзивного режима
+            if (exclusiveMode) {
+                currentTheme = (currentTheme === 'light' || currentTheme === 'gradient') ? 'gradient' : 'cyberpunk';
+            }
+
+            // Применяем тему
+            document.body.setAttribute('data-theme', currentTheme);
+
+            // Состояние кнопки звезды
+            const starBtn = document.querySelector('.theme-stars-btn');
+            if (starBtn) starBtn.classList.toggle('active', exclusiveMode);
+
+            // Обновление иконок солнца/луны
+            const updateIcons = () => {
+                const isDark = ['dark', 'cyberpunk'].includes(currentTheme);
+                const sun = document.querySelector('.icon-sun');
+                const moon = document.querySelector('.icon-moon');
+                if (sun) sun.style.display = isDark ? 'none' : 'block';
+                if (moon) moon.style.display = isDark ? 'block' : 'none';
+            };
+            updateIcons();
+
+            // Переключение обычной темы
+            window.toggleTheme = () => {
+                currentTheme = exclusiveMode
+                    ? (currentTheme === 'gradient' ? 'cyberpunk' : 'gradient')
+                    : (currentTheme === 'light' ? 'dark' : 'light');
+                localStorage.setItem('theme', currentTheme);
+                document.body.setAttribute('data-theme', currentTheme);
+                updateIcons();
+            };
+
+            // Переключение эксклюзивного режима
+            window.toggleStarTheme = () => {
+                exclusiveMode = !exclusiveMode;
+                localStorage.setItem('exclusiveMode', exclusiveMode);
+                currentTheme = exclusiveMode
+                    ? (currentTheme === 'light' || currentTheme === 'gradient' ? 'gradient' : 'cyberpunk')
+                    : (currentTheme === 'gradient' ? 'light' : 'dark');
+                localStorage.setItem('theme', currentTheme);
+                document.body.setAttribute('data-theme', currentTheme);
+                if (starBtn) starBtn.classList.toggle('active', exclusiveMode);
+                updateIcons();
+            };
+        });
+    </script>
+</body>
+</html>

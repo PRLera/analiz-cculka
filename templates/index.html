@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализатор корзин покупок</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Верхняя панель управления -->
+    <div class="top-controls">
+        <div class="controls-right">
+            <!-- Переключатель тем -->
+            <button class="theme-toggle-btn" onclick="toggleTheme()" title="Переключить тему">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+
+            <!-- Кнопка эксклюзивных тем -->
+            <button class="theme-stars-btn" onclick="toggleStarTheme()" title="Режим эксклюзивных цветовых тем">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+            </button>
+
+            <!-- Кнопка Входа / Профиля (44×44px) -->
+            {% if is_auth %}
+                <a href="{{ url_for('profile') }}" class="auth-circle-btn" title="Мой профиль">
+                    {{ user_info.name[0] | upper }}
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="auth-circle-btn" title="Войти в систему">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Анализатор корзин покупок</h1>
+        <p class="subtitle">Находите товары, которые чаще всего покупают вместе</p>
+
+        <div class="card upload-card">
+            <!-- Сообщения от сервера -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Форма загрузки файла -->
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="file-upload-wrapper">
+                    <input type="file" name="file" id="fileInput" required hidden>
+                    <div class="file-upload-area" onclick="document.getElementById('fileInput').click()">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <div class="file-upload-text">
+                            <span class="file-upload-title">Перетащите CSV-файл сюда</span>
+                            <span class="file-upload-subtitle">или нажмите для выбора файла</span>
+                        </div>
+                        <div class="file-name" id="fileName">Файл не выбран</div>
+                    </div>
+                </div>
+                <button type="submit">Загрузить<br>и проанализировать</button>
+            </form>
+            <p class="hint">Требуется формат .csv с колонками: <code>id_чека</code>, <code>товар</code></p>
+        </div>
+
+        <!-- Результаты анализа -->
+        {% if result.lines > 0 %}
+        <div class="results-layout">
+            <aside class="stats-sidebar">
+                <div class="stat-box"><h3>Строк в файле</h3><p>{{ result.lines }}</p></div>
+                <div class="stat-box"><h3>Чеков</h3><p>{{ result.analysis.metadata.total_receipts if result.analysis else 0 }}</p></div>
+                <div class="stat-box"><h3>Найдено пар</h3><p>{{ result.analysis.metadata.total_pairs_analyzed if result.analysis else 0 }}</p></div>
+                <div class="stat-box"><h3>Рекомендуется</h3><p>{{ result.analysis.metadata.recommended_pairs if result.analysis else 0 }}</p></div>
+            </aside>
+
+            <main class="main-content">
+                <div class="card table-card">
+                    <!-- Верхняя панель управления таблицей -->
+                    <div class="table-header-controls">
+                        <div class="sort-group">
+                            <select id="sortMetric" class="sort-select" onchange="applySorting()">
+                                <option value="count">По количеству чеков</option>
+                                <option value="support">По доле в чеках</option>
+                                <option value="confidence">По вероятности покупки</option>
+                                <option value="lift">По силе связи</option>
+                            </select>
+                            <button id="sortDirBtn" class="sort-dir-btn" onclick="toggleSortDir()">По убыванию</button>
+                        </div>
+                        <div class="info-group">
+                            <details class="metrics-info">
+                                <summary>Как читать метрики</summary>
+                                <ul>
+                                    <li><strong>Доля в чеках (Support):</strong> В скольких процентах чеков встречаются оба товара вместе.</li>
+                                    <li><strong>Вероятность покупки (Confidence):</strong> Если купили товар 1, какова вероятность, что купят и товар 2.</li>
+                                    <li><strong>Сила связи (Lift):</strong> &gt; 1 — усиливают друг друга, = 1 — независимы, &lt; 1 — вытесняют.</li>
+                                </ul>
+                            </details>
+                        </div>
+                    </div>
+
+                    <h2>Результаты анализа</h2>
+
+                    {% if result.analysis and result.analysis.all_pairs %}
+                    <div class="table-wrapper">
+                        <table id="pairsTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-num">№</th>
+                                    <th>Товар 1</th>
+                                    <th>Товар 2</th>
+                                    <th class="col-count">Чеков</th>
+                                    <th class="col-metric">Доля в чеках, %</th>
+                                    <th class="col-metric">Вероятность покупки, %</th>
+                                    <th class="col-metric">Сила связи</th>
+                                    <th class="col-rec">Рекомендация</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                {% for pair in result.analysis.all_pairs %}
+                                <tr data-count="{{ pair.count }}"
+                                    data-support="{{ pair.support }}"
+                                    data-confidence="{{ pair.confidence }}"
+                                    data-lift="{{ pair.lift }}">
+                                    <td class="col-num row-number">{{ loop.index }}</td>
+                                    <td><strong>{{ pair.product_a }}</strong></td>
+                                    <td><strong>{{ pair.product_b }}</strong></td>
+                                    <td class="col-count">{{ pair.count }}</td>
+                                    <td class="col-metric">{{ pair.support }}%</td>
+                                    <td class="col-metric">{{ pair.confidence }}%</td>
+                                    <td class="col-metric">
+                                        <span class="lift-value">{{ pair.lift }}</span>
+                                        <span class="lift-hint">({{ pair.lift_interpretation }})</span>
+                                    </td>
+                                    <td class="col-rec">
+                                        {% if pair.recommendation %}
+                                        <span class="badge badge-high">{{ pair.recommendation }}</span>
+                                        {% else %}
+                                        <span class="badge badge-low">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Нижние кнопки управления -->
+                    <div class="pagination-controls">
+                        <button class="btn-outline" id="btnShowMore" onclick="showMorePairs()">Показать ещё 10</button>
+                        <button class="btn-primary" id="btnShowAll" onclick="showAllPairs()" style="display: none;">Показать все ({{ result.analysis.total_pairs_count }})</button>
+                        <div class="pairs-counter" id="pairsCounter">Показано: 10 из {{ result.analysis.total_pairs_count }}</div>
+                    </div>
+
+                    <div class="download-buttons">
+                        <a href="{{ url_for('download_report', filename=result.analysis.report_filename) }}" class="btn-primary" data-auth="true">Скачать топ-10 (JSON)</a>
+                        <a href="{{ url_for('download_all_report', filename=result.analysis.report_filename) }}" class="btn-outline download-all-btn" data-auth="true">Скачать все пары (JSON)</a>
+                    </div>
+                    {% else %}
+                    <p class="info">Недостаточно данных для построения таблицы пар.</p>
+                    {% endif %}
+                </div>
+            </main>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Баннер авторизации (по центру экрана, появляется ПОСЛЕ скачивания) -->
+    <div id="auth-banner" class="auth-banner hidden">
+        <div class="auth-banner-content">
+            <span>Войдите в систему, чтобы сохранять историю ваших анализов</span>
+            <div class="auth-banner-actions">
+                <a href="{{ url_for('login') }}" class="btn-banner-primary">Войти</a>
+                <button onclick="closeAuthBanner()" class="btn-banner-secondary">Позже</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кнопки прокрутки (тонкие стрелки) -->
+    <div class="table-scroll-controls">
+        <button class="scroll-btn" id="btnScrollTop" onclick="scrollToTableTop()" title="В начало">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+        </button>
+        <button class="scroll-btn" id="btnScrollBottom" onclick="scrollToTableBottom()" title="В конец">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        const isAuth = {{ is_auth | lower }};
+
+        // Функции прокрутки (только для кнопок стрелок)
+        window.scrollToTableTop = () => document.querySelector('.table-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.scrollToTableBottom = () => document.querySelector('.table-card')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        window.closeAuthBanner = () => document.getElementById('auth-banner').classList.add('hidden');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Drag & Drop
+            const fileInput = document.getElementById('fileInput');
+            const fileName = document.getElementById('fileName');
+            const uploadArea = document.querySelector('.file-upload-area');
+            if (uploadArea && fileInput) {
+                const prevent = e => { e.preventDefault(); e.stopPropagation(); };
+                ['dragenter','dragover','dragleave','drop'].forEach(e => uploadArea.addEventListener(e, prevent, false));
+                const hl = () => uploadArea.classList.add('drag-over');
+                const uhl = () => uploadArea.classList.remove('drag-over');
+                ['dragenter','dragover'].forEach(e => uploadArea.addEventListener(e, hl, false));
+                ['dragleave','drop'].forEach(e => uploadArea.addEventListener(e, uhl, false));
+                fileInput.addEventListener('change', () => {
+                    if (fileInput.files?.length) {
+                        fileName.textContent = fileInput.files[0].name;
+                        fileName.classList.add('has-file'); uploadArea.classList.add('has-file');
+                    } else {
+                        fileName.textContent = 'Файл не выбран';
+                        fileName.classList.remove('has-file'); uploadArea.classList.remove('has-file');
+                    }
+                });
+                uploadArea.addEventListener('drop', e => {
+                    if (e.dataTransfer.files.length) {
+                        fileInput.files = e.dataTransfer.files;
+                        fileInput.dispatchEvent(new Event('change'));
+                    }
+                });
+            }
+
+            // 2. Обработчик скачивания — файл скачивается СРАЗУ, баннер показывается после
+            document.querySelectorAll('[data-auth="true"]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Не предотвращаем скачивание — файл начнёт загружаться сразу
+                    // Показываем баннер с небольшой задержкой
+                    setTimeout(() => {
+                        if (!isAuth) {
+                            document.getElementById('auth-banner').classList.remove('hidden');
+                        }
+                    }, 300);
+                });
+            });
+
+            // 3. Кнопки прокрутки (логика видимости)
+            const table = document.querySelector('.table-card');
+            const btnTop = document.getElementById('btnScrollTop');
+            const btnBottom = document.getElementById('btnScrollBottom');
+            if (table && btnTop && btnBottom) {
+                const check = () => {
+                    const r = table.getBoundingClientRect(), t = r.top + window.scrollY, b = t + r.height;
+                    window.scrollY > t + 100 ? btnTop.classList.add('visible') : btnTop.classList.remove('visible');
+                    window.scrollY < b - window.innerHeight + 150 ? btnBottom.classList.add('visible') : btnBottom.classList.remove('visible');
+                };
+                window.addEventListener('scroll', check, { passive: true });
+                window.addEventListener('resize', check);
+                setTimeout(check, 200);
+            }
+
+            // 4. Темы (с сохранением в localStorage)
+            let exMode = localStorage.getItem('exclusiveMode') === 'true';
+            let curTheme = localStorage.getItem('theme') || 'light';
+            if (exMode) curTheme = (curTheme === 'light' || curTheme === 'gradient') ? 'gradient' : 'cyberpunk';
+            document.body.setAttribute('data-theme', curTheme);
+            document.querySelector('.theme-stars-btn')?.classList.toggle('active', exMode);
+            const updIcons = () => {
+                const d = ['dark', 'cyberpunk'].includes(curTheme);
+                document.querySelector('.icon-sun').style.display = d ? 'none' : 'block';
+                document.querySelector('.icon-moon').style.display = d ? 'block' : 'none';
+            };
+            updIcons();
+            window.toggleTheme = () => {
+                curTheme = exMode ? (curTheme === 'gradient' ? 'cyberpunk' : 'gradient') : (curTheme === 'light' ? 'dark' : 'light');
+                localStorage.setItem('theme', curTheme);
+                document.body.setAttribute('data-theme', curTheme);
+                updIcons();
+            };
+            window.toggleStarTheme = () => {
+                exMode = !exMode; localStorage.setItem('exclusiveMode', exMode);
+                curTheme = exMode ? (curTheme === 'light' || curTheme === 'gradient' ? 'gradient' : 'cyberpunk') : (curTheme === 'gradient' ? 'light' : 'dark');
+                localStorage.setItem('theme', curTheme);
+                document.body.setAttribute('data-theme', curTheme);
+                document.querySelector('.theme-stars-btn').classList.toggle('active', exMode);
+                updIcons();
+            };
+
+            // 5. Пагинация и сортировка
+            let currentLimit = 10;
+            let currentMetric = 'count';
+            let currentDir = 'desc';
+            const pairsPerPage = 10;
+
+            const updateVisiblePairs = () => {
+                const rows = document.querySelectorAll('#tableBody tr');
+                rows.forEach((row, i) => row.style.display = i < currentLimit ? '' : 'none');
+                document.querySelectorAll('#tableBody tr').forEach((row, i) => {
+                    if (row.style.display !== 'none') {
+                        const cell = row.querySelector('.row-number');
+                        if (cell) cell.textContent = i + 1;
+                    }
+                });
+                const cnt = document.getElementById('pairsCounter');
+                if (cnt) cnt.textContent = `Показано: ${Math.min(currentLimit, rows.length)} из ${rows.length}`;
+                const bm = document.getElementById('btnShowMore'), ba = document.getElementById('btnShowAll');
+                if (bm) bm.style.display = currentLimit >= rows.length ? 'none' : 'inline-flex';
+                if (ba) ba.style.display = currentLimit >= rows.length ? 'none' : 'inline-flex';
+            };
+
+            // Функции показа — БЕЗ прокрутки страницы
+            window.showMorePairs = () => { currentLimit += pairsPerPage; updateVisiblePairs(); };
+            window.showAllPairs = () => { currentLimit = 99999; updateVisiblePairs(); };
+
+            window.toggleSortDir = () => {
+                currentDir = currentDir === 'desc' ? 'asc' : 'desc';
+                document.getElementById('sortDirBtn').textContent = currentDir === 'desc' ? 'По убыванию' : 'По возрастанию';
+                applySorting();
+            };
+
+            window.applySorting = () => {
+                currentMetric = document.getElementById('sortMetric').value;
+                const tbody = document.getElementById('tableBody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                rows.sort((a, b) => {
+                    const valA = parseFloat(a.dataset[currentMetric]) || 0;
+                    const valB = parseFloat(b.dataset[currentMetric]) || 0;
+                    return currentDir === 'asc' ? valA - valB : valB - valA;
+                });
+                rows.forEach(r => tbody.appendChild(r));
+                updateVisiblePairs();
+            };
+
+            if (document.getElementById('tableBody')) {
+                updateVisiblePairs();
+            }
+        });
+    </script>
+</body>
+</html>
